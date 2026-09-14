@@ -125,7 +125,7 @@ const GuardCertificates: React.FC = () => {
                         <div key={cert.id} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                             <div className="aspect-[1.4/1] relative overflow-hidden bg-gray-50">
                                 <img
-                                    src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${cert.imageUrl.replace('.png', '_thumb.png')}`}
+                                    src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${(cert.imageUrl || '').replace('.png', '_thumb.png')}`}
                                     alt={cert.courseTitle}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     onError={(e) => {

@@ -19,6 +19,12 @@ interface Certificate {
     imageUrl?: string;
 }
 
+const certFileUrl = (imageUrl?: string) => {
+    if (!imageUrl) return null;
+    const base = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${base}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+};
+
 const AdminCertificatesPage: React.FC = () => {
     const [certificates, setCertificates] = useState<Certificate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,9 +48,9 @@ const AdminCertificatesPage: React.FC = () => {
     }, []);
 
     const filteredCertificates = certificates.filter(cert =>
-        cert.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cert.courseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cert.certCode.toLowerCase().includes(searchQuery.toLowerCase())
+        (cert.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (cert.courseName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (cert.certCode || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (loading) {
@@ -127,15 +133,27 @@ const AdminCertificatesPage: React.FC = () => {
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
                                             <button 
-                                                onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${cert.imageUrl}`, '_blank')}
+                                                onClick={() => {
+                                                    const url = certFileUrl(cert.imageUrl);
+                                                    if (!url) {
+                                                        toast.error('No certificate image on file for this record');
+                                                        return;
+                                                    }
+                                                    window.open(url, '_blank');
+                                                }}
                                                 className="p-2 text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all active:scale-90"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
                                             <button 
                                                 onClick={() => {
+                                                    const url = certFileUrl(cert.imageUrl);
+                                                    if (!url) {
+                                                        toast.error('No certificate image on file for this record');
+                                                        return;
+                                                    }
                                                     const link = document.createElement('a');
-                                                    link.href = `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${cert.imageUrl}`;
+                                                    link.href = url;
                                                     link.download = `Certificate_${cert.certCode}.png`;
                                                     document.body.appendChild(link);
                                                     link.click();
