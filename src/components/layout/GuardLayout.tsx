@@ -55,7 +55,7 @@ const GuardLayout: React.FC = () => {
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 h-full relative">
                 {/* Header */}
-                <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-8 z-20 w-full shrink-0">
+                <header className="relative h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-8 z-40 w-full shrink-0">
                     {/* Mobile Logo Section */}
                     <div className="flex items-center gap-2 lg:hidden">
                         <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg" />
@@ -78,7 +78,7 @@ const GuardLayout: React.FC = () => {
 
                             {/* Notifications Dropdown */}
                             {showNotifications && (
-                                <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                                <div className="fixed left-4 right-4 top-16 mt-2 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
                                     <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                                         <h3 className="font-bold text-gray-900">Notifications</h3>
                                         {unreadCount > 0 && (
