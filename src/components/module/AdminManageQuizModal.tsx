@@ -26,6 +26,8 @@ const AdminManageQuizModal: React.FC<AdminManageQuizModalProps> = ({ moduleItem,
     const [fetching, setFetching] = useState(false);
 
     const [questions, setQuestions] = useState<QuestionPayload[]>([]);
+    /** Set when the existing quiz could not be read, so saving would wipe questions we never loaded. */
+    const [loadFailed, setLoadFailed] = useState(false);
     const [newQuestion, setNewQuestion] = useState({
         text: '',
         type: 'MULTIPLE_CHOICE' as 'MULTIPLE_CHOICE' | 'TRUE_OR_FALSE',
@@ -42,6 +44,7 @@ const AdminManageQuizModal: React.FC<AdminManageQuizModalProps> = ({ moduleItem,
         const fetchExistingQuiz = async () => {
             if (isOpen && moduleItem) {
                 setFetching(true);
+                setLoadFailed(false);
                 try {
                     const quiz = await getModuleQuiz(moduleItem.id);
                     if (quiz && quiz.questions) {
@@ -56,6 +59,9 @@ const AdminManageQuizModal: React.FC<AdminManageQuizModalProps> = ({ moduleItem,
                     }
                 } catch (error: any) {
                     if (error?.response?.status !== 404) {
+                        // The quiz may well have questions we simply could not read.
+                        // Saving now would delete them, so lock saving until a reload succeeds.
+                        setLoadFailed(true);
                         toast.error('Failed to load existing quiz');
                     } else {
                         setQuestions([]); // No quiz exists yet
@@ -145,6 +151,18 @@ const AdminManageQuizModal: React.FC<AdminManageQuizModalProps> = ({ moduleItem,
                 options: finalOptions,
                 answerText: newQuestion.answerText
             });
+        }
+
+        if (loadFailed) {
+            toast.error('The existing quiz could not be loaded. Reopen this dialog before saving, or you would erase its questions.');
+            return;
+        }
+
+        if (finalQuestionsToSave.length === 0) {
+            const confirmed = window.confirm(
+                'This will remove every question from this quiz. Guards will see an empty assessment. Continue?'
+            );
+            if (!confirmed) return;
         }
 
         setLoading(true);
