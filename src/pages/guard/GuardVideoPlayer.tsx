@@ -483,10 +483,10 @@ const GuardVideoPlayer: React.FC = () => {
                 />
             )}
 
-            <div className="w-full h-[var(--main-height,calc(100vh-6rem))] flex flex-col md:flex-row bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full md:h-[var(--main-height,calc(100vh-6rem))] flex flex-col md:flex-row bg-gray-50 rounded-2xl md:overflow-hidden border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-500">
                 {/* Left Side: Viewer */}
-                <div className="flex-1 flex flex-col bg-black relative">
-                    <div className="absolute top-4 left-4 z-20">
+                <div className="flex-1 flex flex-col bg-black relative min-h-[50vh] md:min-h-0">
+                    <div className="p-3 md:p-0 md:absolute md:top-4 md:left-4 z-20">
                         <button
                             onClick={() => navigate(`/guard/learning-hub/${courseId}`)}
                             className="flex items-center gap-2 bg-black/60 hover:bg-black text-white px-4 py-2 rounded-lg backdrop-blur text-sm font-semibold transition"
@@ -572,13 +572,13 @@ const GuardVideoPlayer: React.FC = () => {
                 </div>
 
                 {/* Right Side: Curriculum */}
-                <div className="w-full md:w-80 lg:w-96 bg-white border-l border-gray-100 flex flex-col h-full z-10">
+                <div className="w-full md:w-80 lg:w-96 bg-white border-t md:border-t-0 md:border-l border-gray-100 flex flex-col md:h-full z-10">
                     <div className="p-6 border-b border-gray-100 shadow-sm flex-shrink-0">
                         <h2 className="text-lg font-bold text-gray-900 leading-tight mb-2">{course?.title}</h2>
                         <p className="text-sm font-medium text-[#d0a868]">Course Curriculum</p>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
+                    <div className="md:flex-1 md:overflow-y-auto p-4 space-y-8 custom-scrollbar">
                         {modules.map((mod, index) => {
                             const isVideoUnlocked = index === 0 || completedPieces.quizzes.includes(modules[index - 1].id);
                             const isVideoCompleted = completedPieces.videos.includes(mod.id);

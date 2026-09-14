@@ -69,9 +69,10 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
             await submitModuleQuiz(moduleId, { score: calculatedScore, passed: true, answers });
             setPassed(true);
             setShowResults(true);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error submitting quiz', err);
-            alert('Failed to submit quiz. Please try again.');
+            const serverMessage = err?.response?.data?.message;
+            alert(serverMessage || 'Failed to submit quiz. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -106,8 +107,8 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
     // GuardVideoPlayer handles modal logic from here
     if (showResults) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 w-full h-full overflow-y-auto">
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
+            <div className="flex flex-col items-center justify-center p-4 md:p-8 bg-gray-50 w-full h-full md:overflow-y-auto">
+                <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
                     <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${passed ? 'bg-[#d0a868]/20' : 'bg-red-100'
                         }`}>
                         {passed
@@ -140,13 +141,13 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
 
     if (!started) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 w-full h-full">
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
+            <div className="flex flex-col items-center justify-center p-4 md:p-8 bg-gray-50 w-full h-full">
+                <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
                     <div className="w-20 h-20 bg-[#d0a868]/10 rounded-full flex items-center justify-center mx-auto">
                         <span className="text-2xl font-bold text-[#d0a868]">{quiz.questions.length}</span>
                     </div>
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 mb-2">Module Assessment</h2>
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 break-words">Module Assessment</h2>
                         <p className="text-gray-500">
                             This quiz contains {quiz.questions.length} questions. You need a score of {quiz.passMark}% to pass.
                         </p>
@@ -165,21 +166,21 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
     }
 
     return (
-        <div className="flex-1 overflow-y-auto p-8 bg-white text-left w-full">
+        <div className="flex-1 md:overflow-y-auto p-5 md:p-8 bg-white text-left w-full">
             <div className="max-w-3xl mx-auto space-y-12 pb-24">
                 <div className="border-b border-gray-100 pb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Module Assessment</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 break-words">Module Assessment</h2>
                     <p className="text-gray-500">Answer all questions to complete the module.</p>
                 </div>
 
                 <div className="space-y-12">
                     {quiz.questions.map((q, idx) => (
                         <div key={q.id} className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900">
+                            <h3 className="text-base md:text-lg font-semibold text-gray-900">
                                 <span className="text-[#d0a868] mr-2">{idx + 1}.</span>
                                 {q.text}
                             </h3>
-                            <div className="space-y-3 pl-6">
+                            <div className="space-y-3 md:pl-6">
                                 {q.options && Array.isArray(q.options) && q.options.map((opt: any, optIdx: number) => (
                                     <label
                                         key={optIdx}

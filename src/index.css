@@ -84,6 +84,12 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display uppercase tracking-tight;
   }
+  /* Tailwind sizes are rem-based, so shrinking the root scales all text down on phones. */
+  @media (max-width: 767px) {
+    html {
+      font-size: 14px;
+    }
+  }
 }
 
 /* Custom Utilities based on brand */
