@@ -6,8 +6,8 @@ import {
     Sparkles, Award
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { completeLesson, getLessonsByModule, getModulesByCourse } from '../../api/module';
-import type { Lesson, Module } from '../../api/module';
+import { getModulesByCourse } from '../../api/module';
+import type { Module } from '../../api/module';
 import { getCourses } from '../../api/course';
 import type { Course } from '../../api/course';
 import GuardQuizPlayer from './GuardQuizPlayer';
@@ -177,9 +177,6 @@ const GuardVideoPlayer: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeModuleIndex, setActiveModuleIndex] = useState(0);
     const [activeView, setActiveView] = useState<'video' | 'quiz'>('video');
-    /** Courses authored as lessons keep their videos there rather than on the module. */
-    const [lessonsByModule, setLessonsByModule] = useState<Record<string, Lesson[]>>({});
-    const [activeLessonIndex, setActiveLessonIndex] = useState(0);
 
     const [completedPieces, setCompletedPieces] = useState<{ videos: string[], quizzes: string[] }>({
         videos: [],
@@ -198,11 +195,6 @@ const GuardVideoPlayer: React.FC = () => {
     const [certError, setCertError] = useState<string | null>(null);
 
     const activeModule = modules[activeModuleIndex];
-    const activeLessons = activeModule ? (lessonsByModule[activeModule.id] ?? []) : [];
-    /** Fall back to the module's lesson videos when the module itself has none. */
-    const usesLessonVideos = !activeModule?.video && activeLessons.length > 0;
-    const activeLesson = usesLessonVideos ? activeLessons[activeLessonIndex] : undefined;
-    const currentVideoSrc = usesLessonVideos ? activeLesson?.video ?? null : activeModule?.video ?? null;
 
     // Refs to avoid stale closures
     const activeModuleRef = useRef(activeModule);
@@ -274,15 +266,6 @@ const GuardVideoPlayer: React.FC = () => {
                 const sortedModules = moduleData.sort((a, b) => a.order - b.order);
                 setModules(sortedModules);
 
-                const lessonLists = await Promise.all(
-                    sortedModules.map(module =>
-                        getLessonsByModule(module.id)
-                            .then(list => [module.id, list.filter(lesson => lesson.video).sort((a, b) => a.order - b.order)] as const)
-                            .catch(() => [module.id, [] as Lesson[]] as const)
-                    )
-                );
-                setLessonsByModule(Object.fromEntries(lessonLists));
-
                 const backendCompleted = {
                     videos: sortedModules.filter(m => m.videoWatched).map(m => m.id),
                     quizzes: sortedModules.filter(m => m.quizPassed).map(m => m.id)
@@ -318,18 +301,6 @@ const GuardVideoPlayer: React.FC = () => {
         };
         fetchCourseData();
     }, [courseId, searchParams]);
-
-    // Roll straight into the next lesson video so a module plays as one sitting.
-    useEffect(() => {
-        if (usesLessonVideos && activeLessonIndex > 0 && videoRef.current) {
-            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-        }
-    }, [activeLessonIndex, usesLessonVideos]);
-
-    // Restart the module's lesson playlist whenever the guard switches module.
-    useEffect(() => {
-        setActiveLessonIndex(0);
-    }, [activeModule?.id]);
 
     // ✅ Resume video position
     useEffect(() => {
@@ -411,18 +382,6 @@ const GuardVideoPlayer: React.FC = () => {
         setIsPlaying(false);
         const currentMod = modules[activeModuleIndex];
         if (!currentMod) return;
-
-        if (usesLessonVideos) {
-            const finishedLesson = activeLessons[activeLessonIndex];
-            if (finishedLesson) {
-                completeLesson(finishedLesson.id).catch(err =>
-                    console.error('[Lesson] Failed to mark complete:', err));
-            }
-            if (activeLessonIndex + 1 < activeLessons.length) {
-                setActiveLessonIndex(activeLessonIndex + 1);
-                return;
-            }
-        }
         const userObjStr = localStorage.getItem('user');
         const user = userObjStr ? JSON.parse(userObjStr) : null;
         const userId = user?.id || 'guest';
@@ -538,12 +497,11 @@ const GuardVideoPlayer: React.FC = () => {
 
                     {activeView === 'quiz' ? (
                         <GuardQuizPlayer moduleId={activeModule?.id || ''} onFinish={handleQuizFinish} />
-                    ) : activeModule && currentVideoSrc ? (
+                    ) : activeModule && activeModule.video ? (
                         <div ref={playerContainerRef} className="relative flex-1 flex flex-col group">
                             <video
                                 ref={videoRef}
-                                key={currentVideoSrc}
-                                src={currentVideoSrc}
+                                src={activeModule.video}
                                 className="w-full h-full object-contain bg-black"
                                 onTimeUpdate={handleTimeUpdate}
                                 onLoadedMetadata={handleLoadedMetadata}
@@ -581,15 +539,6 @@ const GuardVideoPlayer: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-
-                            {usesLessonVideos && (
-                                <div className="absolute top-4 right-4 z-20 max-w-[60%] rounded-lg bg-black/60 px-3 py-2 backdrop-blur">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#d0a868]">
-                                        Lesson {activeLessonIndex + 1} of {activeLessons.length}
-                                    </p>
-                                    <p className="truncate text-xs font-semibold text-white">{activeLesson?.title}</p>
-                                </div>
-                            )}
 
                             {!isPlaying && currentTime < duration && (
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
