@@ -195,6 +195,11 @@ const GuardVideoPlayer: React.FC = () => {
     const [certError, setCertError] = useState<string | null>(null);
 
     const activeModule = modules[activeModuleIndex];
+    /**
+     * Courses built from lessons (BSIS aside) are worked through on the lesson
+     * pages; this player only hosts their quiz, so its curriculum list is hidden.
+     */
+    const isLessonBasedCourse = modules.some(module => module.lessonCount > 0);
 
     // Refs to avoid stale closures
     const activeModuleRef = useRef(activeModule);
@@ -301,6 +306,18 @@ const GuardVideoPlayer: React.FC = () => {
         };
         fetchCourseData();
     }, [courseId, searchParams]);
+
+    // A lesson-based module is watched on its lesson page, never in this player.
+    useEffect(() => {
+        if (loading || !courseId || !isLessonBasedCourse || activeView !== 'video') return;
+        const target = modules[activeModuleIndex];
+        navigate(
+            target && target.lessonCount > 0
+                ? `/guard/learning-hub/${courseId}/modules/${target.id}`
+                : `/guard/learning-hub/${courseId}`,
+            { replace: true }
+        );
+    }, [loading, isLessonBasedCourse, activeView, activeModuleIndex, modules, courseId, navigate]);
 
     // ✅ Resume video position
     useEffect(() => {
@@ -572,6 +589,7 @@ const GuardVideoPlayer: React.FC = () => {
                 </div>
 
                 {/* Right Side: Curriculum */}
+                {!isLessonBasedCourse && (
                 <div className="w-full md:w-80 lg:w-96 bg-white border-t md:border-t-0 md:border-l border-gray-100 flex flex-col md:h-full z-10">
                     <div className="p-6 border-b border-gray-100 shadow-sm flex-shrink-0">
                         <h2 className="text-lg font-bold text-gray-900 leading-tight mb-2">{course?.title}</h2>
@@ -657,6 +675,7 @@ const GuardVideoPlayer: React.FC = () => {
                         })}
                     </div>
                 </div>
+                )}
             </div>
         </>
     );

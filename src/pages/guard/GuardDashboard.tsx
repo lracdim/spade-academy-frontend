@@ -264,7 +264,7 @@ const GuardDashboard: React.FC = () => {
                                 <div
                                     onClick={stats.continueCourse.progress === 100
                                         ? undefined
-                                        : () => navigate(`/guard/learning-hub/${stats.continueCourse?.id}/play`)}
+                                        : () => navigate(`/guard/learning-hub/${stats.continueCourse?.id}`)}
                                     className={`${stats.continueCourse.progress === 100 ? '' : 'cursor-pointer'} space-y-4 flex-1 flex flex-col min-h-0`}
                                 >
                                     <div className="aspect-[1.8/1] rounded-2xl overflow-hidden relative bg-gray-50 border border-gray-100 shadow-inner group/thumb shrink-0">
@@ -313,7 +313,7 @@ const GuardDashboard: React.FC = () => {
                                     if (stats.continueCourse?.progress === 100) {
                                         navigate('/guard/certificates');
                                     } else {
-                                        navigate(`/guard/learning-hub/${stats.continueCourse?.id}/play`);
+                                        navigate(`/guard/learning-hub/${stats.continueCourse?.id}`);
                                     }
                                 }}
                                 className={`w-full py-3.5 mt-4 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all border border-white/5 ${stats.continueCourse.progress === 100
