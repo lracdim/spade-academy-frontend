@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ChevronRight, FileText, PlayCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Lock, PlayCircle } from 'lucide-react';
 import { completeLesson, getLessonsByModule, getModulesByCourse, type Lesson, type Module } from '@/api/module';
+import LessonVideo from '@/components/guard/LessonVideo';
 
 const GuardModuleLessons: React.FC = () => {
     const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
@@ -17,7 +18,11 @@ const GuardModuleLessons: React.FC = () => {
             .then(([modules, items]) => {
                 setModule(modules.find(item => item.id === moduleId) ?? null);
                 setLessons(items);
-                setCompletedLessonIds(items.filter(item => item.completed).map(item => item.id));
+                const done = items.filter(item => item.completed).map(item => item.id);
+                setCompletedLessonIds(done);
+                // Open the first lesson the guard has not finished yet.
+                const next = items.find(item => !done.includes(item.id)) ?? items[0];
+                setOpenLesson(current => current ?? next?.id ?? null);
             })
             .catch(console.error);
     }, [courseId, moduleId]);
@@ -28,6 +33,7 @@ const GuardModuleLessons: React.FC = () => {
 
     if (!module) return <div className="p-12 text-center text-gray-400">Loading module…</div>;
     if (!lessons.length) return null;
+
     const allLessonsCompleted = lessons.every(lesson => completedLessonIds.includes(lesson.id));
     const isUnlocked = (index: number) => index === 0 || completedLessonIds.includes(lessons[index - 1].id);
     const markComplete = async (lessonId: string) => {
@@ -35,36 +41,98 @@ const GuardModuleLessons: React.FC = () => {
         setCompletedLessonIds(current => current.includes(lessonId) ? current : [...current, lessonId]);
     };
 
+    const activeIndex = lessons.findIndex(lesson => lesson.id === openLesson);
+    const activeLesson = activeIndex >= 0 ? lessons[activeIndex] : lessons[0];
+    const completedInModule = lessons.filter(lesson => completedLessonIds.includes(lesson.id)).length;
+
     return (
-        <div className="max-w-4xl mx-auto space-y-7 pb-20 animate-in fade-in duration-500">
+        // Full-bleed against the layout's own padding, then a flat 25px gutter.
+        <div className="w-full -mx-5 px-[25px] space-y-6 pb-20 animate-in fade-in duration-500">
             <button onClick={() => navigate(`/guard/learning-hub/${courseId}`)} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-900">
                 <ArrowLeft className="w-4 h-4" /> Back to modules
             </button>
+
             <header>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[#d0a868] mb-2">Course module</p>
-                <h1 className="text-3xl font-black text-gray-900">{module.title}</h1>
+                <h1 className="text-2xl lg:text-3xl font-black text-gray-900">{module.title}</h1>
                 <p className="mt-2 text-gray-500">Complete each lesson, then take the module quiz.</p>
             </header>
-            <section className="space-y-3">
-                {lessons.map((lesson, index) => (
-                    <article key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <button disabled={!isUnlocked(index)} onClick={() => setOpenLesson(openLesson === lesson.id ? null : lesson.id)} className="w-full p-5 flex items-center gap-4 text-left hover:bg-gray-50 disabled:opacity-45 disabled:cursor-not-allowed">
-                            <span className="w-9 h-9 rounded-full bg-[#d0a868]/10 text-[#9b743d] font-black text-sm flex items-center justify-center">{index + 1}</span>
-                            <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Lesson {index + 1}{!isUnlocked(index) ? ' · Locked' : ''}</p><h2 className="font-bold text-gray-900 mt-0.5">{lesson.title}</h2></div>
-                            <ChevronRight className={`w-5 h-5 text-gray-300 transition-transform ${openLesson === lesson.id ? 'rotate-90' : ''}`} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+                {/* Left: the lesson being watched */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-gray-100">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            Lesson {activeIndex >= 0 ? activeIndex + 1 : 1} of {lessons.length}
+                        </p>
+                        <h2 className="font-bold text-gray-900 mt-1">{activeLesson?.title}</h2>
+                    </div>
+                    <div className="p-5">
+                        {activeLesson?.video && (
+                            <LessonVideo
+                                key={activeLesson.id}
+                                src={activeLesson.video}
+                                onWatched={() => markComplete(activeLesson.id).catch(console.error)}
+                            />
+                        )}
+                        <p className="whitespace-pre-wrap text-sm leading-7 text-gray-600">{activeLesson?.content}</p>
+                        {activeLesson && completedLessonIds.includes(activeLesson.id) && (
+                            <div className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-emerald-600">
+                                <CheckCircle2 className="w-4 h-4" /> Lesson complete
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Right: the lesson list */}
+                <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden lg:sticky lg:top-4">
+                    <div className="p-5 border-b border-gray-100">
+                        <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Module lessons</h2>
+                        <p className="text-xs font-bold text-[#d0a868] mt-1">{completedInModule} of {lessons.length} complete</p>
+                    </div>
+
+                    <div className="max-h-[60vh] lg:max-h-[calc(100vh-22rem)] overflow-y-auto p-3 space-y-2">
+                        {lessons.map((lesson, index) => {
+                            const unlocked = isUnlocked(index);
+                            const done = completedLessonIds.includes(lesson.id);
+                            const active = lesson.id === activeLesson?.id;
+                            return (
+                                <button
+                                    key={lesson.id}
+                                    disabled={!unlocked}
+                                    onClick={() => setOpenLesson(lesson.id)}
+                                    className={`w-full text-left p-3 rounded-xl border flex items-start gap-3 transition-all
+                                        ${active ? 'bg-[#d0a868]/10 border-[#d0a868]' : 'bg-white border-gray-100 hover:border-gray-200'}
+                                        ${!unlocked ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                    <span className="w-7 h-7 shrink-0 rounded-full bg-[#d0a868]/10 text-[#9b743d] font-black text-xs flex items-center justify-center">
+                                        {done ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : !unlocked ? <Lock className="w-3.5 h-3.5 text-gray-400" /> : index + 1}
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                            Lesson {index + 1}{!unlocked ? ' · Locked' : ''}
+                                        </span>
+                                        <span className={`block text-xs font-bold mt-0.5 ${active ? 'text-[#9b743d]' : 'text-gray-800'}`}>
+                                            {lesson.title}
+                                        </span>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="p-3 border-t border-gray-100">
+                        <button
+                            disabled={!allLessonsCompleted}
+                            onClick={() => navigate(`/guard/learning-hub/${courseId}/play?module=${moduleId}&view=quiz`)}
+                            className="w-full rounded-xl bg-gray-950 p-4 text-white flex items-center justify-between hover:bg-[#d0a868] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <span className="flex items-center gap-2 font-black text-sm"><FileText className="w-4 h-4" /> Take Module Quiz</span>
+                            <span className="text-[10px] font-bold text-white/70">After {lessons.length} lessons <PlayCircle className="w-3.5 h-3.5 inline ml-1" /></span>
                         </button>
-                        {openLesson === lesson.id && <div className="border-t border-gray-100 px-5 py-6 ml-0 sm:ml-14">
-                            {lesson.video && <video src={lesson.video} controls controlsList="nodownload noplaybackrate" disablePictureInPicture onEnded={() => markComplete(lesson.id).catch(console.error)} className="w-full rounded-xl bg-black mb-5" />}
-                            <p className="whitespace-pre-wrap text-sm leading-7 text-gray-600">{lesson.content}</p>
-                            {completedLessonIds.includes(lesson.id) && <div className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircle2 className="w-4 h-4" /> Lesson complete</div>}
-                        </div>}
-                    </article>
-                ))}
-            </section>
-            <button disabled={!allLessonsCompleted} onClick={() => navigate(`/guard/learning-hub/${courseId}/play?module=${moduleId}&view=quiz`)} className="w-full rounded-2xl bg-gray-950 p-5 text-white flex items-center justify-between hover:bg-[#d0a868] disabled:opacity-40 disabled:cursor-not-allowed">
-                <span className="flex items-center gap-3 font-black"><FileText className="w-5 h-5" /> Take Module Quiz</span>
-                <span className="text-xs font-bold text-white/70">After {lessons.length} lessons <PlayCircle className="w-4 h-4 inline ml-1" /></span>
-            </button>
+                    </div>
+                </aside>
+            </div>
         </div>
     );
 };
