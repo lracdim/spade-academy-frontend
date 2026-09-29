@@ -59,9 +59,14 @@ const CourseCompleteModal: React.FC<{
     isGenerating: boolean;
     certGenerated: boolean;
     certError: string | null;
+    /** Modules still missing a watched video or a passed quiz. */
+    outstanding: string[];
     onGoToCertificates: () => void;
+    onResume: () => void;
     onStay: () => void;
-}> = ({ courseName, isGenerating, certGenerated, certError, onGoToCertificates, onStay }) => (
+}> = ({ courseName, isGenerating, certGenerated, certError, outstanding, onGoToCertificates, onResume, onStay }) => {
+    const isComplete = outstanding.length === 0;
+    return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
         <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
             <div className="flex flex-col items-center text-center">
@@ -71,24 +76,42 @@ const CourseCompleteModal: React.FC<{
                     <Trophy className="w-10 h-10 text-white" />
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full mb-4">
-                    <Sparkles className="w-3 h-3 text-emerald-500" />
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                        Training Complete
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-4 border ${isComplete ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                    <Sparkles className={`w-3 h-3 ${isComplete ? 'text-emerald-500' : 'text-amber-500'}`} />
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${isComplete ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {isComplete ? 'Training Complete' : 'Almost There'}
                     </span>
                 </div>
 
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-2">
-                    Congratulations! 🎉
+                    {isComplete ? 'Congratulations! 🎉' : 'Nearly Finished'}
                 </h2>
                 <p className="text-sm text-gray-500 font-medium mb-1">
-                    Thank you for completing
+                    {isComplete ? 'Thank you for completing' : 'Still to finish in'}
                 </p>
                 <p className="text-sm font-bold text-gray-900 mb-6 px-2">
                     "{courseName}"
                 </p>
 
+                {/* Outstanding work, shown instead of a certificate status */}
+                {!isComplete && (
+                    <div className="w-full rounded-2xl p-4 mb-6 border bg-amber-50/60 border-amber-200 text-left">
+                        <p className="text-xs font-black uppercase tracking-wider text-amber-700 mb-2">
+                            {outstanding.length} module{outstanding.length === 1 ? '' : 's'} left
+                        </p>
+                        <ul className="space-y-1">
+                            {outstanding.map(title => (
+                                <li key={title} className="text-[11px] font-medium text-amber-800/90">• {title}</li>
+                            ))}
+                        </ul>
+                        <p className="text-[10px] text-amber-700/70 font-medium mt-2">
+                            Your certificate is issued once every module is finished.
+                        </p>
+                    </div>
+                )}
+
                 {/* Certificate status card */}
+                {isComplete && (
                 <div className={`w-full rounded-2xl p-4 mb-6 border transition-all duration-500 ${certError
                         ? 'bg-red-50 border-red-200'
                         : certGenerated
@@ -137,9 +160,19 @@ const CourseCompleteModal: React.FC<{
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Buttons */}
                 <div className="w-full space-y-3">
+                    {!isComplete ? (
+                        <button
+                            onClick={onResume}
+                            className="w-full py-3.5 font-black rounded-2xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider bg-[#d0a868] hover:bg-[#b8955c] text-white shadow-lg shadow-[#d0a868]/20"
+                        >
+                            <ArrowRight className="w-4 h-4" />
+                            Finish Remaining Modules
+                        </button>
+                    ) : (
                     <button
                         onClick={onGoToCertificates}
                         disabled={isGenerating}
@@ -151,6 +184,7 @@ const CourseCompleteModal: React.FC<{
                         <Award className="w-4 h-4" />
                         {isGenerating ? 'Please wait...' : 'View My Certificate'}
                     </button>
+                    )}
                     <button
                         onClick={onStay}
                         className="w-full py-3 text-gray-400 hover:text-gray-600 font-bold text-xs uppercase tracking-wider transition-colors"
@@ -161,7 +195,8 @@ const CourseCompleteModal: React.FC<{
             </div>
         </div>
     </div>
-);
+    );
+};
 
 // ─────────────────────────────────────────────
 // Main Component
@@ -194,6 +229,8 @@ const GuardVideoPlayer: React.FC = () => {
     const [isGeneratingCert, setIsGeneratingCert] = useState(false);
     const [certGenerated, setCertGenerated] = useState(false);
     const [certError, setCertError] = useState<string | null>(null);
+    /** Titles of modules still missing a watched video or a passed quiz. */
+    const [outstandingModules, setOutstandingModules] = useState<string[]>([]);
 
     const activeModule = modules[activeModuleIndex];
     /**
@@ -455,9 +492,14 @@ const GuardVideoPlayer: React.FC = () => {
         const isLastModule = activeModuleIndex + 1 >= modules.length;
 
         if (isLastModule) {
-            // ✅ Show course complete modal + auto-generate certificate
+            // The last quiz is not the same as a finished course: a guard can reach it
+            // with an earlier module still unwatched, so check every module first.
+            const remaining = modules
+                .filter(mod => !newCompleted.videos.includes(mod.id) || !newCompleted.quizzes.includes(mod.id))
+                .map(mod => mod.title);
+            setOutstandingModules(remaining);
             setShowCourseCompleteModal(true);
-            triggerCertificateGeneration();
+            if (remaining.length === 0) triggerCertificateGeneration();
         } else {
             // ✅ Show next module modal
             setShowNextModuleModal(true);
@@ -469,6 +511,17 @@ const GuardVideoPlayer: React.FC = () => {
         setShowNextModuleModal(false);
         setActiveModuleIndex(prev => prev + 1);
         setActiveView('video');
+    };
+
+    /** Sends the guard back to the first module they have not finished. */
+    const handleResumeOutstanding = () => {
+        setShowCourseCompleteModal(false);
+        const index = modules.findIndex(mod =>
+            !completedPieces.videos.includes(mod.id) || !completedPieces.quizzes.includes(mod.id));
+        if (index >= 0) {
+            setActiveModuleIndex(index);
+            setActiveView(completedPieces.videos.includes(modules[index].id) ? 'quiz' : 'video');
+        }
     };
 
     // ✅ User clicks "View My Certificate"
@@ -504,7 +557,9 @@ const GuardVideoPlayer: React.FC = () => {
                     isGenerating={isGeneratingCert}
                     certGenerated={certGenerated}
                     certError={certError}
+                    outstanding={outstandingModules}
                     onGoToCertificates={handleGoToCertificates}
+                    onResume={handleResumeOutstanding}
                     onStay={() => setShowCourseCompleteModal(false)}
                 />
             )}
