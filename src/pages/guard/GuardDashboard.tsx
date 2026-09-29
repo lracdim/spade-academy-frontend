@@ -1,7 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, BookOpen, Download, PlayCircle, TrendingUp, Copy } from 'lucide-react';
+import { Award, BookOpen, CheckCircle2, Download, PlayCircle, TrendingUp, Copy } from 'lucide-react';
 import { getGuardDashboardStats, type GuardDashboardStats } from '../../api/dashboard';
+import { getMyProgress } from '../../api/progress';
+
+interface CourseProgress {
+    courseId: string;
+    courseTitle: string;
+    totalModules: number;
+    watchedModules: number;
+    completionPercent: number;
+}
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -17,6 +26,7 @@ const GuardDashboard: React.FC = () => {
     const navigate = useNavigate();
     const dashboardRef = useRef<HTMLDivElement>(null);
     const [stats, setStats] = useState<GuardDashboardStats | null>(null);
+    const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
     const [loading, setLoading] = useState(true);
 
     const handleDownloadReport = async () => {
@@ -43,6 +53,9 @@ const GuardDashboard: React.FC = () => {
     const fetchStats = async () => {
         try {
             const data = await getGuardDashboardStats();
+            getMyProgress()
+                .then(res => setCourseProgress(res?.progress ?? []))
+                .catch(err => console.error('Failed to load course progress:', err));
             console.log('[Dashboard] Stats received:', data);
             setStats(data);
         } catch (error) {
@@ -95,6 +108,8 @@ const GuardDashboard: React.FC = () => {
             subtext: 'Certificates earned'
         },
     ];
+
+    const completedCourses = courseProgress.filter(course => course.completionPercent >= 100);
 
     if (loading) {
         return (
@@ -199,6 +214,31 @@ const GuardDashboard: React.FC = () => {
                                 </div>
                             </div>
                         ))}
+
+
+                        <div className="pt-6 mt-2 border-t border-gray-50">
+                            <h3 className="text-[9px] font-black text-gray-900 uppercase tracking-[0.3em] mb-4">Completed Courses</h3>
+                            {completedCourses.length === 0 ? (
+                                <p className="text-[10px] font-medium text-gray-400">
+                                    No courses finished yet. Completed training will be listed here.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {completedCourses.map(course => (
+                                        <div key={course.courseId} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/70 border border-gray-50">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-bold text-gray-900 truncate">{course.courseTitle}</p>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">
+                                                    {course.watchedModules} of {course.totalModules} modules
+                                                </p>
+                                            </div>
+                                            <span className="text-[10px] font-black text-emerald-600 shrink-0">100%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between shrink-0">
