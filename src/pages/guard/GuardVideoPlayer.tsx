@@ -13,6 +13,7 @@ import type { Course } from '../../api/course';
 import GuardQuizPlayer from './GuardQuizPlayer';
 import { updateVideoProgress } from '../../api/progress';
 import { generateCertificate } from '../../api/dashboard';
+import { useAntiSkipVideo } from '../../hooks/useAntiSkipVideo';
 
 // ─────────────────────────────────────────────
 // Modal: Go to Next Module
@@ -202,6 +203,7 @@ const GuardVideoPlayer: React.FC = () => {
     const isLessonBasedCourse = modules.some(module => module.lessonCount > 0);
 
     // Refs to avoid stale closures
+    const { resetProgress, seedProgress, hasWatchedToEnd } = useAntiSkipVideo(videoRef);
     const activeModuleRef = useRef(activeModule);
     useEffect(() => {
         activeModuleRef.current = activeModule;
@@ -326,7 +328,11 @@ const GuardVideoPlayer: React.FC = () => {
             const user = userStr ? JSON.parse(userStr) : null;
             const userId = user?.id || 'guest';
             const savedPos = localStorage.getItem(`video_pos_${userId}_${activeModule.id}`);
-            if (savedPos) videoRef.current.currentTime = parseFloat(savedPos);
+            if (savedPos) {
+                const resumeAt = parseFloat(savedPos);
+                videoRef.current.currentTime = resumeAt;
+                seedProgress(resumeAt);
+            }
         }
     }, [activeModule?.id, activeView]);
 
@@ -373,6 +379,7 @@ const GuardVideoPlayer: React.FC = () => {
         if (videoRef.current) {
             setDuration(videoRef.current.duration);
             setIsPlaying(false);
+            resetProgress();
         }
     };
 
@@ -399,6 +406,8 @@ const GuardVideoPlayer: React.FC = () => {
         setIsPlaying(false);
         const currentMod = modules[activeModuleIndex];
         if (!currentMod) return;
+        // Modules without a video are completed by the button; a real video must be watched through.
+        if (currentMod.video && !hasWatchedToEnd()) return;
         const userObjStr = localStorage.getItem('user');
         const user = userObjStr ? JSON.parse(userObjStr) : null;
         const userId = user?.id || 'guest';
