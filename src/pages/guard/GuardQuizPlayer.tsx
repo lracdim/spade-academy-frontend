@@ -3,6 +3,8 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { getModuleQuiz, submitModuleQuiz } from '../../api/module';
 import type { Quiz } from '../../api/module';
+import { getMyQuizAttempts } from '../../api/quiz';
+import type { QuizAttempt } from '../../api/quiz';
 
 interface GuardQuizPlayerProps {
     moduleId: string;
@@ -20,12 +22,23 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
 
     const [showResults, setShowResults] = useState(false);
     const [passed, setPassed] = useState(false);
+    /** The guard's best previous attempt at this quiz, if they already sat it. */
+    const [previousAttempt, setPreviousAttempt] = useState<QuizAttempt | null>(null);
 
     useEffect(() => {
         const fetchQuiz = async () => {
             try {
                 setLoading(true);
                 const data = await getModuleQuiz(moduleId);
+
+                // Surface an earlier result rather than inviting a retake.
+                const attempts = await getMyQuizAttempts().catch(() => [] as QuizAttempt[]);
+                const forThisQuiz = attempts.filter(attempt => attempt.quizId === data.id);
+                const best = forThisQuiz.find(attempt => attempt.passed)
+                    ?? forThisQuiz.slice().sort((a, b) => b.score - a.score)[0]
+                    ?? null;
+                setPreviousAttempt(best);
+
                 setQuiz({
                     ...data,
                     questions: data.questions?.map(q => ({
@@ -139,6 +152,42 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
         );
     }
 
+    // Already sat and passed: show the score, not an invitation to take it again.
+    if (!started && previousAttempt?.passed) {
+        return (
+            <div className="flex flex-col items-center justify-center p-4 md:p-8 bg-gray-50 w-full h-full md:overflow-y-auto">
+                <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
+                    <div className="w-24 h-24 rounded-full bg-[#d0a868]/20 flex items-center justify-center mx-auto">
+                        <CheckCircle className="w-12 h-12 text-[#d0a868]" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Assessment Passed</h2>
+                        <p className="text-gray-500">
+                            You completed this assessment on{' '}
+                            {new Date(previousAttempt.attemptedAt).toLocaleDateString()}.
+                        </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-8 py-4 border-y border-gray-100">
+                        <div>
+                            <p className="text-3xl font-black text-gray-900">{previousAttempt.score}%</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Your score</p>
+                        </div>
+                        <div>
+                            <p className="text-3xl font-black text-gray-400">{quiz.passMark}%</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Pass mark</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onFinish}
+                        className="w-full py-4 bg-[#d0a868] hover:bg-[#b8955c] text-white font-bold rounded-xl transition shadow-md"
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (!started) {
         return (
             <div className="flex flex-col items-center justify-center p-4 md:p-8 bg-gray-50 w-full h-full">
@@ -151,13 +200,18 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
                         <p className="text-gray-500">
                             This quiz contains {quiz.questions.length} questions. You need a score of {quiz.passMark}% to pass.
                         </p>
+                        {previousAttempt && !previousAttempt.passed && (
+                            <p className="text-sm font-bold text-red-500 mt-3">
+                                Last attempt: {previousAttempt.score}% — below the {quiz.passMark}% pass mark.
+                            </p>
+                        )}
                     </div>
                     <div className="pt-8">
                         <button
                             onClick={() => setStarted(true)}
                             className="px-8 py-3 bg-[#d0a868] hover:bg-[#b8955c] text-white font-bold rounded-xl transition shadow-md w-full max-w-md"
                         >
-                            Start Quiz Now
+                            {previousAttempt ? 'Retake Quiz' : 'Start Quiz Now'}
                         </button>
                     </div>
                 </div>
