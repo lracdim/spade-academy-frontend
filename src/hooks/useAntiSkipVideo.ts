@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 /**
- * Master switch. Turned off for now at the client's request; flip to true to
- * bring back seek blocking, 1x playback and pause-on-tab-switch.
+ * Master switch for seek blocking, 1x playback and pause-on-tab-switch.
+ * Set to false to lift the rules temporarily (for a demo or a trial run).
  */
-export const VIDEO_RULES_ENABLED = false;
+export const VIDEO_RULES_ENABLED = true;
 
 /** Small slack so ordinary playback jitter is never mistaken for a seek. */
 const SEEK_TOLERANCE_SECONDS = 1;
