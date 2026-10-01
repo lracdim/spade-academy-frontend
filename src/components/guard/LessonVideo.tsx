@@ -5,6 +5,8 @@ import { useAntiSkipVideo } from '../../hooks/useAntiSkipVideo';
 interface LessonVideoProps {
     src: string;
     onWatched: () => void;
+    /** Start playing immediately, used when the previous lesson just finished. */
+    autoPlay?: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -19,7 +21,7 @@ const formatTime = (seconds: number) => {
  * drag to the end, so playback is driven by click-to-play with only the elapsed
  * time and a fullscreen button on screen.
  */
-const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched }) => {
+const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched, autoPlay = false }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { hasWatchedToEnd } = useAntiSkipVideo(videoRef);
@@ -65,7 +67,12 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched }) => {
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
-                onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+                onLoadedMetadata={() => {
+                    setDuration(videoRef.current?.duration ?? 0);
+                    // Browsers allow this because the guard already pressed play on
+                    // the previous lesson; if they block it, the poster stays put.
+                    if (autoPlay) videoRef.current?.play().catch(() => undefined);
+                }}
                 onEnded={() => { if (hasWatchedToEnd()) onWatched(); }}
                 className="w-full h-full object-contain bg-black cursor-pointer"
             />

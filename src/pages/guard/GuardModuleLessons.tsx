@@ -10,6 +10,8 @@ const GuardModuleLessons: React.FC = () => {
     const [module, setModule] = useState<Module | null>(null);
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [openLesson, setOpenLesson] = useState<string | null>(null);
+    /** Set when the previous lesson finished, so the next one starts on its own. */
+    const [autoPlayNext, setAutoPlayNext] = useState(false);
     const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
 
     useEffect(() => {
@@ -39,6 +41,22 @@ const GuardModuleLessons: React.FC = () => {
     const markComplete = async (lessonId: string) => {
         await completeLesson(lessonId);
         setCompletedLessonIds(current => current.includes(lessonId) ? current : [...current, lessonId]);
+    };
+
+    /** Mark the finished lesson complete, then roll straight into the next one. */
+    const handleLessonWatched = async (lessonId: string) => {
+        await markComplete(lessonId);
+        const finishedIndex = lessons.findIndex(lesson => lesson.id === lessonId);
+        const next = lessons[finishedIndex + 1];
+        if (next) {
+            setAutoPlayNext(true);
+            setOpenLesson(next.id);
+        }
+    };
+
+    const selectLesson = (lessonId: string) => {
+        setAutoPlayNext(false);
+        setOpenLesson(lessonId);
     };
 
     const activeIndex = lessons.findIndex(lesson => lesson.id === openLesson);
@@ -72,7 +90,8 @@ const GuardModuleLessons: React.FC = () => {
                             <LessonVideo
                                 key={activeLesson.id}
                                 src={activeLesson.video}
-                                onWatched={() => markComplete(activeLesson.id).catch(console.error)}
+                                autoPlay={autoPlayNext}
+                                onWatched={() => handleLessonWatched(activeLesson.id).catch(console.error)}
                             />
                         )}
                         <p className="whitespace-pre-wrap text-xs lg:text-sm leading-6 lg:leading-7 text-gray-600">{activeLesson?.content}</p>
@@ -100,7 +119,7 @@ const GuardModuleLessons: React.FC = () => {
                                 <button
                                     key={lesson.id}
                                     disabled={!unlocked}
-                                    onClick={() => setOpenLesson(lesson.id)}
+                                    onClick={() => selectLesson(lesson.id)}
                                     className={`w-full text-left p-2.5 lg:p-3 rounded-xl border flex items-center gap-3 transition-all
                                         ${active ? 'bg-[#d0a868]/10 border-[#d0a868]' : 'bg-white border-gray-100 hover:border-gray-200'}
                                         ${!unlocked ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
