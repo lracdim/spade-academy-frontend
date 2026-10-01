@@ -8,7 +8,16 @@ interface CertData {
     issuedAt: string;
     userName: string;
     courseTitle: string;
+    imageUrl?: string | null;
 }
+
+/** The certificate image is served by the API host, not the web app. */
+const certificateImageUrl = (imageUrl?: string | null) => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http')) return imageUrl;
+    const base = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${base}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+};
 
 const VerifyCertificate: React.FC = () => {
     const { code } = useParams<{ code: string }>();
@@ -115,11 +124,31 @@ const VerifyCertificate: React.FC = () => {
                                 <p className="text-emerald-400 font-black text-xs uppercase tracking-widest">Digital authenticity verified</p>
                                 <p className="text-emerald-200/50 text-[10px] font-medium mt-1 uppercase italic">This is an official document from Orchid Investment Group DBA Spade Security Services</p>
                             </div>
+
+                            {certificateImageUrl(certData.imageUrl) && (
+                                <div className="space-y-3">
+                                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Certificate</p>
+                                    <a
+                                        href={certificateImageUrl(certData.imageUrl) as string}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block rounded-2xl overflow-hidden border border-white/10 bg-black/30 hover:border-[#d0a868]/50 transition-colors"
+                                    >
+                                        <img
+                                            src={certificateImageUrl(certData.imageUrl) as string}
+                                            alt={`Certificate ${certData.certCode} for ${certData.userName}`}
+                                            className="w-full h-auto"
+                                            loading="lazy"
+                                        />
+                                    </a>
+                                    <p className="text-gray-500 text-[10px] font-medium text-center">Tap the certificate to open it full size.</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Footer */}
                         <div className="p-8 border-t border-white/5 bg-black/20 text-center">
-                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-4">© 2024 Spade Academy System</p>
+                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-4">© {new Date().getFullYear()} Spade Academy System</p>
                             <Link to="/login" className="text-[#d0a868] hover:text-white font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                                 Visit Spade Academy <ShieldCheck className="w-3.5 h-3.5" />
                             </Link>
