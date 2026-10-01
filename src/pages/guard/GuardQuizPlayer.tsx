@@ -22,6 +22,14 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
 
     const [showResults, setShowResults] = useState(false);
     const [passed, setPassed] = useState(false);
+    /** What the server decided about the attempt that was just submitted. */
+    const [result, setResult] = useState<{
+        score: number;
+        passMark: number;
+        attemptsUsed: number;
+        maxAttempts: number;
+        wasReset: boolean;
+    } | null>(null);
     /** The guard's best previous attempt at this quiz, if they already sat it. */
     const [previousAttempt, setPreviousAttempt] = useState<QuizAttempt | null>(null);
 
@@ -69,6 +77,14 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
         setAnswers(prev => ({ ...prev, [questionId]: value }));
     };
 
+    const retakeQuiz = () => {
+        setAnswers({});
+        setShowResults(false);
+        setResult(null);
+        setPassed(false);
+        setStarted(true);
+    };
+
     const handleSubmit = async () => {
         if (!quiz || !quiz.questions) return;
         try {
@@ -79,8 +95,20 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
                 if (isCorrect) correctCount++;
             });
             const calculatedScore = Math.round((correctCount / quiz.questions.length) * 100);
-            await submitModuleQuiz(moduleId, { score: calculatedScore, passed: true, answers });
-            setPassed(true);
+            // The server marks the answers itself and decides pass or fail; use its verdict.
+            const outcome = await submitModuleQuiz(moduleId, {
+                score: calculatedScore,
+                passed: calculatedScore >= quiz.passMark,
+                answers,
+            });
+            setPassed(Boolean(outcome?.passed));
+            setResult({
+                score: Number(outcome?.score ?? calculatedScore),
+                passMark: Number(outcome?.passMark ?? quiz.passMark),
+                attemptsUsed: Number(outcome?.attemptsUsed ?? 0),
+                maxAttempts: Number(outcome?.maxAttempts ?? 5),
+                wasReset: Boolean(outcome?.wasReset),
+            });
             setShowResults(true);
         } catch (err: any) {
             console.error('Error submitting quiz', err);
@@ -119,34 +147,82 @@ const GuardQuizPlayer: React.FC<GuardQuizPlayerProps> = ({ moduleId, onFinish })
     // ✅ Results screen — just shows pass/fail, button calls onFinish()
     // GuardVideoPlayer handles modal logic from here
     if (showResults) {
+        const attemptsLeft = result ? Math.max(0, result.maxAttempts - result.attemptsUsed) : 0;
+        const backToCourse = () => {
+            window.location.assign(window.location.pathname.replace(/\/play.*$/, ''));
+        };
+
         return (
             <div className="flex flex-col items-center justify-center p-4 md:p-8 bg-gray-50 w-full h-full md:overflow-y-auto">
                 <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full text-center space-y-6">
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${passed ? 'bg-[#d0a868]/20' : 'bg-red-100'
-                        }`}>
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${passed ? 'bg-[#d0a868]/20' : 'bg-red-100'}`}>
                         {passed
                             ? <CheckCircle className="w-12 h-12 text-[#d0a868]" />
                             : <XCircle className="w-12 h-12 text-red-600" />}
                     </div>
 
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                            {passed ? 'Assessment Passed!' : 'Assessment Complete'}
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                            {passed ? 'Assessment Passed!' : 'Not Passed'}
                         </h2>
                         <p className="text-gray-500">
                             {passed
                                 ? 'Great work! You have successfully completed this module.'
-                                : 'Thank you for completing the assessment.'}
+                                : 'You did not reach the pass mark this time. Review the lessons if you need to, then try again.'}
                         </p>
                     </div>
 
-                    {/* ✅ Single button — triggers modal in GuardVideoPlayer */}
-                    <button
-                        onClick={onFinish}
-                        className="w-full py-4 bg-[#d0a868] hover:bg-[#b8955c] text-white font-bold rounded-xl transition shadow-md"
-                    >
-                        Continue
-                    </button>
+                    {result && (
+                        <div className="flex items-center justify-center gap-8 py-4 border-y border-gray-100">
+                            <div>
+                                <p className={`text-3xl font-black ${passed ? 'text-emerald-600' : 'text-red-500'}`}>{result.score}%</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Your score</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-gray-400">{result.passMark}%</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Pass mark</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {!passed && result && !result.wasReset && (
+                        <p className={`text-xs font-bold ${attemptsLeft <= 1 ? 'text-red-500' : 'text-gray-500'}`}>
+                            Attempt {result.attemptsUsed} of {result.maxAttempts}.{' '}
+                            {attemptsLeft <= 1
+                                ? 'This is your last attempt: failing again resets your progress in this course.'
+                                : `${attemptsLeft} attempts left before this course resets.`}
+                        </p>
+                    )}
+
+                    {!passed && result?.wasReset && (
+                        <p className="text-xs font-bold text-red-500">
+                            You have used all {result.maxAttempts} attempts, so your progress in this course has been reset. You will need to start again from Module 1.
+                        </p>
+                    )}
+
+                    {passed ? (
+                        // Only a pass moves the guard on and shows the module-complete flow.
+                        <button
+                            onClick={onFinish}
+                            className="w-full py-4 bg-[#d0a868] hover:bg-[#b8955c] text-white font-bold rounded-xl transition shadow-md"
+                        >
+                            Continue
+                        </button>
+                    ) : result?.wasReset ? (
+                        <button
+                            onClick={backToCourse}
+                            className="w-full py-4 bg-gray-950 hover:bg-[#d0a868] text-white font-bold rounded-xl transition shadow-md"
+                        >
+                            Back to Course
+                        </button>
+                    ) : (
+                        <button
+                            onClick={retakeQuiz}
+                            className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition shadow-md"
+                        >
+                            Retake Quiz
+                        </button>
+                    )}
                 </div>
             </div>
         );
