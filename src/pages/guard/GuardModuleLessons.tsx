@@ -89,6 +89,7 @@ const GuardModuleLessons: React.FC = () => {
                         {activeLesson?.video && (
                             <LessonVideo
                                 key={activeLesson.id}
+                                lessonId={activeLesson.id}
                                 src={activeLesson.video}
                                 autoPlay={autoPlayNext}
                                 onWatched={() => handleLessonWatched(activeLesson.id).catch(console.error)}
