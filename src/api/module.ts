@@ -10,6 +10,13 @@ export interface Module {
     lessonCount: number;
     videoWatched?: boolean;
     quizPassed?: boolean;
+    /** Lessons this guard has finished in the module. */
+    lessonsCompleted?: number;
+    /** How many times this guard has sat the module quiz. */
+    quizAttempts?: number;
+    /** Highest quiz score so far, 0 when never attempted. */
+    bestScore?: number;
+    passMark?: number;
 }
 
 export interface Lesson {

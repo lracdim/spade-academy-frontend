@@ -1,11 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, PlayCircle, FileText, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowLeft, PlayCircle, FileText, CheckCircle2, Lock, XCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { getModulesByCourse } from '../../api/module';
 import type { Module } from '../../api/module';
 import { getCourses } from '../../api/course';
 import type { Course } from '../../api/course';
+
+type ModuleStage = 'completed' | 'retake' | 'quiz-ready' | 'in-progress' | 'not-started';
+
+/**
+ * One definition of where a guard stands in a module, used for the badge, the
+ * lock and the button so they can never disagree.
+ */
+const moduleStage = (module: Module): ModuleStage => {
+    if (module.quizPassed) return 'completed';
+    if ((module.quizAttempts ?? 0) > 0) return 'retake';
+
+    const contentDone = module.lessonCount > 0
+        ? (module.lessonsCompleted ?? 0) >= module.lessonCount
+        : Boolean(module.videoWatched);
+    if (contentDone) return 'quiz-ready';
+
+    const started = (module.lessonsCompleted ?? 0) > 0 || Boolean(module.videoWatched);
+    return started ? 'in-progress' : 'not-started';
+};
+
+const STAGE_BADGE: Record<ModuleStage, { label: string; className: string }> = {
+    'completed': { label: 'COMPLETED', className: 'text-emerald-500 bg-emerald-50' },
+    'retake': { label: 'NOT PASSED - RETAKE QUIZ', className: 'text-red-500 bg-red-50' },
+    'quiz-ready': { label: 'READY FOR QUIZ', className: 'text-[#d0a868] bg-[#d0a868]/10' },
+    'in-progress': { label: 'IN PROGRESS', className: 'text-[#d0a868] bg-[#d0a868]/10' },
+    'not-started': { label: 'READY TO START', className: 'text-[#d0a868] bg-[#d0a868]/10' },
+};
+
+/** Whether the watching part of the module (lessons or video) is finished. */
+const contentDone = (module: Module) => module.lessonCount > 0
+    ? (module.lessonsCompleted ?? 0) >= module.lessonCount
+    : Boolean(module.videoWatched);
+
+const STAGE_ACTION: Record<ModuleStage, string> = {
+    'completed': 'Review',
+    'retake': 'Retake Quiz',
+    'quiz-ready': 'Take Quiz',
+    'in-progress': 'Continue',
+    'not-started': 'Start',
+};
 
 const GuardCourseModules: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -13,7 +53,6 @@ const GuardCourseModules: React.FC = () => {
     const [modules, setModules] = useState<Module[]>([]);
     const [course, setCourse] = useState<Course | null>(null);
     const [loading, setLoading] = useState(true);
-    const [completedPieces, setCompletedPieces] = useState<{ videos: string[], quizzes: string[] }>({ videos: [], quizzes: [] });
 
     useEffect(() => {
         const fetchCourseAndModules = async () => {
@@ -37,8 +76,7 @@ const GuardCourseModules: React.FC = () => {
                     videos: sortedModules.filter(m => m.videoWatched).map(m => m.id),
                     quizzes: sortedModules.filter(m => m.quizPassed).map(m => m.id)
                 };
-                
-                setCompletedPieces(apiCompleted);
+
 
                 // Sync with local storage for consistency if needed by other components
                 const userObjStr = localStorage.getItem('user');
@@ -54,6 +92,25 @@ const GuardCourseModules: React.FC = () => {
 
         fetchCourseAndModules();
     }, [courseId]);
+
+    /** A module opens when it is first, the one before it is passed, or the guard already started it. */
+    const isModuleUnlocked = (index: number) => {
+        if (index === 0) return true;
+        if (modules[index - 1].quizPassed) return true;
+        return moduleStage(modules[index]) !== 'not-started';
+    };
+
+    const openModule = (module: Module) => {
+        const stage = moduleStage(module);
+        const wantsQuiz = stage === 'retake' || stage === 'quiz-ready';
+        if (wantsQuiz) {
+            navigate(`/guard/learning-hub/${courseId}/play?module=${module.id}&view=quiz`);
+        } else {
+            navigate(module.lessonCount > 0
+                ? `/guard/learning-hub/${courseId}/modules/${module.id}`
+                : `/guard/learning-hub/${courseId}/play?module=${module.id}`);
+        }
+    };
 
     if (loading) {
         return (
@@ -101,14 +158,7 @@ const GuardCourseModules: React.FC = () => {
                 {modules.map((module, index) => (
                     <div
                         key={module.id}
-                        onClick={() => {
-                            const isUnlocked = index === 0 || completedPieces.quizzes.includes(modules[index - 1].id);
-                            if (isUnlocked) {
-                                navigate(module.lessonCount > 0
-                                    ? `/guard/learning-hub/${courseId}/modules/${module.id}`
-                                    : `/guard/learning-hub/${courseId}/play?module=${module.id}`);
-                            }
-                        }}
+                        onClick={() => { if (isModuleUnlocked(index)) openModule(module); }}
                         className="bg-white border border-gray-100 rounded-[2.5rem] p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col lg:flex-row items-center gap-8 cursor-pointer hover:border-[#d0a868]/30"
                     >
                         {/* YouTube Style Thumbnail */}
@@ -118,16 +168,21 @@ const GuardCourseModules: React.FC = () => {
                                 alt={module.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             />
-                            
+
                             {/* Overlay Status */}
                             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center">
                                 {(() => {
-                                    const isUnlocked = index === 0 || completedPieces.quizzes.includes(modules[index - 1].id);
-                                    const allCompleted = completedPieces.videos.includes(module.id) && completedPieces.quizzes.includes(module.id);
-                                    
-                                    if (allCompleted) return (
+                                    const isUnlocked = isModuleUnlocked(index);
+                                    const stage = moduleStage(module);
+
+                                    if (stage === 'completed') return (
                                         <div className="w-12 h-12 rounded-full bg-emerald-500/90 flex items-center justify-center shadow-lg border border-white/20">
                                             <CheckCircle2 className="w-6 h-6 text-white" />
+                                        </div>
+                                    );
+                                    if (stage === 'retake') return (
+                                        <div className="w-12 h-12 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg border border-white/20">
+                                            <XCircle className="w-6 h-6 text-white" />
                                         </div>
                                     );
                                     if (isUnlocked) return (
@@ -148,21 +203,14 @@ const GuardCourseModules: React.FC = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Module {index + 1}</span>
                                 {(() => {
-                                    const isUnlocked = index === 0 || completedPieces.quizzes.includes(modules[index - 1].id);
-                                    const allCompleted = completedPieces.videos.includes(module.id) && completedPieces.quizzes.includes(module.id);
-                                    
-                                    if (allCompleted) return (
-                                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-md uppercase tracking-wide">COMPLETED</span>
-                                    );
-                                    
-                                    if (isUnlocked) return (
-                                        <span className="text-[10px] font-bold text-[#d0a868] bg-[#d0a868]/10 px-2 py-0.5 rounded-md uppercase tracking-wide">READY TO START</span>
-                                    );
-                                    
-                                    return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-wide">LOCKED</span>;
+                                    if (!isModuleUnlocked(index)) {
+                                        return <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-wide">LOCKED</span>;
+                                    }
+                                    const badge = STAGE_BADGE[moduleStage(module)];
+                                    return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide ${badge.className}`}>{badge.label}</span>;
                                 })()}
                             </div>
-                            
+
                             <div className="space-y-1">
                                 <h3 className="text-xl font-bold text-gray-900 leading-tight">
                                     {module.title}
@@ -170,26 +218,41 @@ const GuardCourseModules: React.FC = () => {
                                 {module.description && (
                                     <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-2xl line-clamp-2">{module.description}</p>
                                 )}
+                                {moduleStage(module) === 'retake' && (
+                                    <p className="text-red-500 text-xs font-bold leading-relaxed max-w-2xl">
+                                        You have not passed this module quiz yet. Your best score is {module.bestScore ?? 0}% and you need {module.passMark ?? 70}% to pass. Please retake the quiz to continue.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Module Assets / Summary */}
                             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-8 gap-y-4 pt-6 border-t border-gray-50">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${completedPieces.videos.includes(module.id) ? 'bg-emerald-50 text-emerald-500' : 'bg-gray-50 text-gray-400 group-hover:text-[#d0a868]'}`}>
-                                        {completedPieces.videos.includes(module.id) ? <CheckCircle2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${contentDone(module) ? 'bg-emerald-50 text-emerald-500' : 'bg-gray-50 text-gray-400 group-hover:text-[#d0a868]'}`}>
+                                        {contentDone(module) ? <CheckCircle2 className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Video</p>
-                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">{module.video ? "Masterclass" : "Upcoming"}</span>
+                                        <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">{module.lessonCount > 0 ? 'Lessons' : 'Video'}</p>
+                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                                            {module.lessonCount > 0
+                                                ? `${module.lessonsCompleted ?? 0} of ${module.lessonCount}`
+                                                : module.video ? 'Masterclass' : 'Upcoming'}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${completedPieces.quizzes.includes(module.id) ? 'bg-emerald-50 text-emerald-500' : 'bg-gray-50 text-gray-400 group-hover:text-[#d0a868]'}`}>
-                                        {completedPieces.quizzes.includes(module.id) ? <CheckCircle2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${moduleStage(module) === 'completed' ? 'bg-emerald-50 text-emerald-500' : moduleStage(module) === 'retake' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400 group-hover:text-[#d0a868]'}`}>
+                                        {moduleStage(module) === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : moduleStage(module) === 'retake' ? <XCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                                     </div>
                                     <div className="text-left">
                                         <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Graded</p>
-                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Final Quiz</span>
+                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                                            {moduleStage(module) === 'completed'
+                                                ? `Passed ${module.bestScore ?? 0}%`
+                                                : moduleStage(module) === 'retake'
+                                                    ? `${module.bestScore ?? 0}% - needs ${module.passMark ?? 70}%`
+                                                    : 'Final Quiz'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -197,22 +260,20 @@ const GuardCourseModules: React.FC = () => {
 
                         {/* Action Button */}
                         {(() => {
-                            const isUnlocked = index === 0 || completedPieces.quizzes.includes(modules[index - 1].id);
-                            const isCompleted = completedPieces.videos.includes(module.id) && completedPieces.quizzes.includes(module.id);
-                            
+                            const isUnlocked = isModuleUnlocked(index);
+                            const stage = moduleStage(module);
+
                             return (
                                 <div className="flex-shrink-0">
                                     {isUnlocked ? (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                navigate(module.lessonCount > 0
-                                                    ? `/guard/learning-hub/${courseId}/modules/${module.id}`
-                                                    : `/guard/learning-hub/${courseId}/play?module=${module.id}`);
+                                                openModule(module);
                                             }}
-                                            className="px-6 py-3 bg-gray-900 shadow-xl shadow-gray-200/50 hover:bg-[#d0a868] text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all hover:shadow-[#d0a868]/20 flex items-center gap-2"
+                                            className={`px-6 py-3 shadow-xl shadow-gray-200/50 text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all hover:shadow-[#d0a868]/20 flex items-center gap-2 ${stage === 'retake' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-900 hover:bg-[#d0a868]'}`}
                                         >
-                                            {isCompleted ? 'Review' : 'Start'} <ArrowLeft className="w-3 h-3 rotate-180" />
+                                            {STAGE_ACTION[stage]} <ArrowLeft className="w-3 h-3 rotate-180" />
                                         </button>
                                     ) : (
                                         <div className="px-6 py-3 bg-gray-50 text-gray-300 font-bold text-[10px] uppercase tracking-widest rounded-xl flex items-center gap-2 border border-gray-100">
