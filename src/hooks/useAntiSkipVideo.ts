@@ -52,11 +52,17 @@ export function useAntiSkipVideo(videoRef: React.RefObject<HTMLVideoElement | nu
 
         const pausePlayback = () => { if (!video.paused) video.pause(); };
         const pauseWhenHidden = () => { if (document.hidden) pausePlayback(); };
+        // Covers playback that *starts* while the page is already in the
+        // background, which no visibility change would announce.
+        const refusePlayWhileHidden = () => { if (document.hidden) pausePlayback(); };
 
         video.addEventListener('seeking', clampToWatched);
         video.addEventListener('timeupdate', trackProgress);
         video.addEventListener('ratechange', keepRealtimeSpeed);
+        video.addEventListener('play', refusePlayWhileHidden);
         document.addEventListener('visibilitychange', pauseWhenHidden);
+        // Older Android browsers only emit the prefixed event.
+        document.addEventListener('webkitvisibilitychange', pauseWhenHidden);
         window.addEventListener('blur', pausePlayback);
         window.addEventListener('pagehide', pausePlayback);
 
@@ -64,7 +70,9 @@ export function useAntiSkipVideo(videoRef: React.RefObject<HTMLVideoElement | nu
             video.removeEventListener('seeking', clampToWatched);
             video.removeEventListener('timeupdate', trackProgress);
             video.removeEventListener('ratechange', keepRealtimeSpeed);
+            video.removeEventListener('play', refusePlayWhileHidden);
             document.removeEventListener('visibilitychange', pauseWhenHidden);
+            document.removeEventListener('webkitvisibilitychange', pauseWhenHidden);
             window.removeEventListener('blur', pausePlayback);
             window.removeEventListener('pagehide', pausePlayback);
         };
