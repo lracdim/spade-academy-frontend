@@ -58,7 +58,7 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ lessonId, src, onWatched, aut
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const lastSavedRef = useRef(0);
-    const { furthestWatched, seedProgress, hasWatchedToEnd } = useAntiSkipVideo(videoRef);
+    const { furthestWatched, seedProgress, resetProgress, hasWatchedToEnd } = useAntiSkipVideo(videoRef);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -78,6 +78,18 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ lessonId, src, onWatched, aut
             document.removeEventListener('visibilitychange', save);
         };
     }, [lessonId, furthestWatched]);
+
+    // The same element plays every lesson: remounting it would drop the browser
+    // out of fullscreen between lessons. Swap the source in place instead.
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        resetProgress();
+        lastSavedRef.current = 0;
+        setCurrentTime(0);
+        setDuration(0);
+        video.load();
+    }, [src, lessonId, resetProgress]);
 
     // Fullscreen needs its own sizing: letterbox the video instead of filling the
     // screen, or a landscape phone crops the subtitles burned into the picture.

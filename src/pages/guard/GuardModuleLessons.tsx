@@ -88,7 +88,6 @@ const GuardModuleLessons: React.FC = () => {
                     <div className="p-4 lg:p-5">
                         {activeLesson?.video && (
                             <LessonVideo
-                                key={activeLesson.id}
                                 lessonId={activeLesson.id}
                                 src={activeLesson.video}
                                 autoPlay={autoPlayNext}
