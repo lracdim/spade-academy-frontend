@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Maximize, Pause, Play } from 'lucide-react';
 import { useAntiSkipVideo } from '../../hooks/useAntiSkipVideo';
 
@@ -26,6 +26,15 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Fullscreen needs its own sizing: letterbox the video instead of filling the
+    // screen, or a landscape phone crops the subtitles burned into the picture.
+    useEffect(() => {
+        const sync = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+        document.addEventListener('fullscreenchange', sync);
+        return () => document.removeEventListener('fullscreenchange', sync);
+    }, []);
 
     const togglePlay = () => {
         const video = videoRef.current;
@@ -40,7 +49,12 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched }) => {
     };
 
     return (
-        <div ref={containerRef} className="relative mb-5 rounded-xl overflow-hidden bg-black group">
+        <div
+            ref={containerRef}
+            className={`relative bg-black group ${isFullscreen
+                ? 'w-screen h-screen flex items-center justify-center'
+                : 'mb-5 rounded-xl overflow-hidden aspect-video'}`}
+        >
             <video
                 ref={videoRef}
                 src={src}
@@ -53,7 +67,7 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ src, onWatched }) => {
                 onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
                 onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
                 onEnded={() => { if (hasWatchedToEnd()) onWatched(); }}
-                className="w-full bg-black cursor-pointer"
+                className="w-full h-full object-contain bg-black cursor-pointer"
             />
 
             {!isPlaying && (
