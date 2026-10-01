@@ -34,3 +34,52 @@ export const updateUser = async (id: string, data: Partial<User> & { password?: 
 export const deleteUser = async (id: string): Promise<void> => {
     await api.delete(`/admin/users/${id}`);
 };
+
+export interface GuardProfile {
+    guard: {
+        id: string;
+        employeeId: string;
+        fullName: string;
+        email: string | null;
+        role: 'ADMIN' | 'GUARD';
+        isActive: boolean;
+        createdAt: string;
+    };
+    summary: {
+        watchSeconds: number;
+        totalAttempts: number;
+        passedAttempts: number;
+        averageScore: number;
+        certificatesEarned: number;
+        modulesCompleted: number;
+        lastActivity: string | null;
+    };
+    courseProgress: {
+        courseId: string;
+        courseTitle: string;
+        totalModules: number;
+        watchedModules: number;
+        passedQuizzes: number;
+        completionPercent: number;
+    }[];
+    attempts: {
+        id: string;
+        score: number;
+        passed: boolean;
+        attemptedAt: string;
+        moduleTitle: string;
+        courseTitle: string;
+    }[];
+    certificates: {
+        id: string;
+        certCode: string;
+        issuedAt: string;
+        imageUrl: string | null;
+        courseTitle: string;
+    }[];
+}
+
+export const getGuardProfile = async (guardId: string): Promise<GuardProfile> => {
+    const response = await api.get<GuardProfile>(`/admin/users/${guardId}/profile`);
+    return response.data;
+};

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Plus,
     Search,
@@ -15,6 +16,7 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import { toast } from 'sonner';
 
 const AdminGuardsPage: React.FC = () => {
+    const navigate = useNavigate();
     const [guards, setGuards] = useState<UserType[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -148,7 +150,11 @@ const AdminGuardsPage: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {filteredGuards.map((guard) => (
-                                <tr key={guard.id} className="hover:bg-gray-50/50 transition-colors group">
+                                <tr
+                                    key={guard.id}
+                                    onClick={() => navigate(`/admin/guards/${guard.id}`)}
+                                    className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                                >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm border border-indigo-100 group-hover:scale-105 transition-transform">
@@ -205,13 +211,13 @@ const AdminGuardsPage: React.FC = () => {
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
                                             <button
-                                                onClick={() => { setSelectedGuard(guard); setIsEditModalOpen(true); }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedGuard(guard); setIsEditModalOpen(true); }}
                                                 className="p-2 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all active:scale-90 border border-transparent hover:border-amber-100"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
                                              <button
-                                                onClick={() => { setSelectedGuard(guard); setIsDeleteModalOpen(true); }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedGuard(guard); setIsDeleteModalOpen(true); }}
                                                 className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all active:scale-90 border border-transparent hover:border-red-100"
                                             >
                                                 <Trash2 className="w-4 h-4" />

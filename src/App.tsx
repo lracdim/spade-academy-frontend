@@ -18,6 +18,7 @@ import GuardLayout from './components/layout/GuardLayout';
 import GuardDashboard from './pages/guard/GuardDashboard';
 import GuardLearningHub from './pages/guard/GuardLearningHub';
 import GuardCourseModules from './pages/guard/GuardCourseModules';
+import AdminGuardProfilePage from './pages/admin/AdminGuardProfilePage';
 import GuardVideoPlayer from './pages/guard/GuardVideoPlayer';
 import GuardModuleLessons from './pages/guard/GuardModuleLessons';
 import GuardCertificates from './pages/guard/GuardCertificates';
@@ -44,6 +45,7 @@ const App: React.FC = () => {
           <Route path="courses/:courseId/modules/:moduleId/lessons" element={<AdminModuleLessonsPage />} />
           <Route path="courses/:courseId/play" element={<AdminVideoPlayer />} />
           <Route path="guards" element={<AdminGuards />} />
+          <Route path="guards/:guardId" element={<AdminGuardProfilePage />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="certificates" element={<AdminCertificates />} />
           <Route path="settings" element={<AdminSettings />} />
