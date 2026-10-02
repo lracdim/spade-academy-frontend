@@ -48,18 +48,22 @@ const LoginPage: React.FC = () => {
                     Login Form
                 </CardTitle>
                 <CardDescription className="text-center text-[#091018]/70">
-                    Enter your employee ID and password to access your account
+                    Enter your employee ID or email and password to access your account
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="employeeId" className="text-sm font-medium text-[#091018]">
-                            Employee ID
+                            Employee ID or email
                         </Label>
                         <Input
                             id="employeeId"
-                            placeholder="e.g. GRD001"
+                            placeholder="Badge number or email"
+                            autoComplete="username"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
                             value={employeeId}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmployeeId(e.target.value)}
                             required
